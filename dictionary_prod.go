@@ -20,13 +20,20 @@ package xkcdpwd
 import (
 	"bytes"
 
+	"golang.org/x/text/language"
+
 	"github.com/wfscheper/xkcdpwd/internal/langs"
 )
 
+var matcher = language.NewMatcher([]language.Tag{
+	language.English,
+})
+
 // GetDict returns the dictionary associated with the language code lang.
 func GetDict(lang string) *Dictionary {
-	switch lang {
-	case "en":
+	tag, _ := language.MatchStrings(matcher, lang)
+	switch tag {
+	case language.English:
 		data := langs.MustAsset("languages/en")
 		return NewDictionary(bytes.NewBuffer(data))
 	default:

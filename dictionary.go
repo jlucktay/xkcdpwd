@@ -27,7 +27,7 @@ type Dictionary struct {
 
 // Length returns the number of words in the Dictionary.
 func (d *Dictionary) Length() int {
-	if d.length == nil {
+	if d.length == nil && d.words != nil {
 		l := len(d.words)
 		d.length = &l
 	}
