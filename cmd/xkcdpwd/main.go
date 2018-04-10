@@ -71,7 +71,10 @@ type Xkcdpwd struct {
 func (x *Xkcdpwd) Run() int {
 	var (
 		// flags
+		lang        string
+		separator   string
 		showVersion bool
+		wordCount   uint
 	)
 
 	flags := flag.NewFlagSet(appName, flag.ContinueOnError)
@@ -79,7 +82,10 @@ func (x *Xkcdpwd) Run() int {
 	_ = flags.Bool("v", false, "be more verbose")
 
 	// register global flags
+	flags.StringVar(&lang, "lang", "", "language to use, a valid IETF language tag (default: en)")
+	flags.StringVar(&separator, "separator", " ", "passphrase separator")
 	flags.BoolVar(&showVersion, "version", false, "show version information")
+	flags.UintVar(&wordCount, "words", 4, "the number of words in each passphrase")
 
 	// wrap stdout and stderr in loggers
 	outLogger := log.New(x.Stdout, "", 0)
@@ -101,11 +107,23 @@ func (x *Xkcdpwd) Run() int {
 `, appName, version, buildDate, commitHash, runtime.Version(), runtime.Compiler, runtime.GOOS, runtime.GOARCH)
 		return successExitCode
 	}
-	d := dict.GetDict("en")
+
+	// check that separator is valid
+	if !checkSeparator(separator) {
+		errLogger.Printf("error: invalid separator '%s'\n", separator)
+		return errorExitCode
+	}
+
+	// Source lang from the environment, but prefer the command line if set
+	if envLang, ok := os.LookupEnv("LANG"); ok && lang == "" {
+		lang = envLang
+	}
+	d := dict.GetDict(lang)
+
 	l := big.NewInt(int64(d.Length() - 1))
-	words := make([]string, 4, 4)
+	words := make([]string, wordCount, wordCount)
 	for i := 0; i < 10; i++ {
-		for j := 0; j < 4; j++ {
+		for j := uint(0); j < wordCount; j++ {
 			idx, err := rand.Int(rand.Reader, l)
 			if err != nil {
 				errLogger.Println("error: cannot generate random words:", err)
@@ -113,9 +131,18 @@ func (x *Xkcdpwd) Run() int {
 			}
 			words[j] = d.Word(int(idx.Int64()))
 		}
-		outLogger.Println(strings.Join(words, " "))
+		outLogger.Println(strings.Join(words, separator))
 	}
 	return successExitCode
+}
+
+func checkSeparator(sep string) bool {
+	switch sep {
+	case "", " ", ".", "-", "_", "=":
+		return true
+	default:
+		return false
+	}
 }
 
 func setUsage(logger *log.Logger, fs *flag.FlagSet) {

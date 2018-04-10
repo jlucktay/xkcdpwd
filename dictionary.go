@@ -11,12 +11,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate go-bindata -prefix internal/langs/ -o internal/langs/languages.go -pkg langs internal/langs/languages/...
+
 package xkcdpwd
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"strings"
+
+	"golang.org/x/text/language"
+
+	"github.com/wfscheper/xkcdpwd/internal/langs"
 )
 
 // Dictionary wraps a word list and its length.
@@ -27,7 +34,7 @@ type Dictionary struct {
 
 // Length returns the number of words in the Dictionary.
 func (d *Dictionary) Length() int {
-	if d.length == nil {
+	if d.length == nil && d.words != nil {
 		l := len(d.words)
 		d.length = &l
 	}
@@ -66,4 +73,20 @@ func NewDictionary(r io.Reader) *Dictionary {
 		}
 	}
 	return d
+}
+
+var matcher = language.NewMatcher([]language.Tag{
+	language.English,
+})
+
+// GetDict returns the dictionary associated with the language code lang.
+func GetDict(lang string) *Dictionary {
+	tag, _ := language.MatchStrings(matcher, lang)
+	switch tag {
+	case language.English:
+		data := langs.MustAsset("languages/en")
+		return NewDictionary(bytes.NewBuffer(data))
+	default:
+		return nil
+	}
 }
